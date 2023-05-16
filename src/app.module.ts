@@ -4,6 +4,7 @@ import * as Joi from 'joi';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CoreModule } from './core/core.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { CoreModule } from './core/core.module';
       },
     }),
     CoreModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
