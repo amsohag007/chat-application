@@ -1,3 +1,4 @@
+import { ChatService } from './services/chat.service';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -9,27 +10,20 @@ import { Server, Socket } from 'socket.io';
 import { PrismaService } from 'src/core/services';
 
 @WebSocketGateway()
-// {
-//   cors: {
-//     credentials: true,
-//     methods: ['GET', 'POST'],
-//     origin: ['http://locahost:3000'],
-//   },
-//   transports: ['polling', 'websocket'],
-// }
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private chatService: ChatService,
+  ) {}
 
   handleConnection(client: Socket) {
-    // Handle client connection
     console.log(`Client connected. ID: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    // Handle client disconnection
     console.log(`Client disconnected. ID: ${client.id}`);
   }
 
@@ -103,5 +97,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // Implement additional event handlers as needed
+  @SubscribeMessage('send-message')
+  async handleSendMessage(
+    socket: Socket,
+    data: { roomId: string; userId: string; message: string },
+  ) {
+    const { roomId, userId, message } = data;
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+    const room = await this.prisma.rooms.findUnique({
+      where: {
+        id: roomId,
+      },
+    });
+
+    if (!user || !room) {
+      return;
+    }
+
+    const newMessage = await this.chatService.createMessage(
+      message,
+      roomId,
+      userId,
+    );
+
+    this.server.to(`${roomId}`).emit('messageReceived', newMessage);
+  }
 }
