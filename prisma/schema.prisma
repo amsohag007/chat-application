@@ -10,34 +10,85 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+/// list of field status type
+enum FieldStatusEnum {
+  ACTIVE
+  INACTIVE
+}
+
+enum RoomTypeEnum {
+  CLIENT
+  TECHNICIAN
+}
+
+model Users {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  username  String   @unique
-  createdAt DateTime @default(now())
+  username String  @unique
+  email    String  @unique @db.VarChar(255)
+  /// user's phone
+  phone    String? @unique @db.VarChar(255)
+  /// user's password
+  password String? @db.VarChar(255)
+
+  metaData    Json?           @default("{}")
+  status      FieldStatusEnum @default(ACTIVE)
+  createdById String?         @db.Uuid
+  updatedById String?         @db.Uuid
+  createdAt   DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime?       @updatedAt
 
   rooms    Rooms[]
-  messages Message[]
+  messages Messages[]
+}
+
+model Branches {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  name        String @db.VarChar(255)
+  description String @db.VarChar(255)
+  location    Json?  @default("{}")
+
+  metaData    Json?           @default("{}")
+  status      FieldStatusEnum @default(ACTIVE)
+  createdById String?         @db.Uuid
+  updatedById String?         @db.Uuid
+  createdAt   DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime?       @updatedAt
+
+  rooms Rooms[]
 }
 
 model Rooms {
-  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name String
+  id   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name String       @unique
+  type RoomTypeEnum @default(CLIENT)
 
-  createdAt DateTime @default(now())
+  metaData    Json?           @default("{}")
+  status      FieldStatusEnum @default(ACTIVE)
+  createdById String?         @db.Uuid
+  updatedById String?         @db.Uuid
+  createdAt   DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime?       @updatedAt
 
-  users    User[]
-  messages Message[]
+  // clientId String @db.Uuid
+  // client   Users  @relation(fields: [clientId], references: [id]) /// client
+
+  branchId String?   @db.Uuid
+  branches Branches? @relation(fields: [branchId], references: [id]) /// branches
+
+  users    Users[]
+  messages Messages[]
 }
 
-model Message {
+model Messages {
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
   text      String
   createdAt DateTime @default(now())
 
   userId String @db.Uuid
-  user   User   @relation(fields: [userId], references: [id])
+  user   Users  @relation(fields: [userId], references: [id])
 
   roomId String @db.Uuid
   Rooms  Rooms  @relation(fields: [roomId], references: [id])

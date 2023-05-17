@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Post, Body } from '@nestjs/common';
 import { ChatService } from '../services/chat.service';
-import { Message } from '@prisma/client';
+import { RoomTypeEnum } from '@prisma/client';
 
 @Controller('chat')
 export class ChatController {
@@ -9,9 +9,14 @@ export class ChatController {
   @Post('rooms/:userId')
   async createRoom(
     @Param('userId') userId: string,
-    @Body() body: { name: string },
+    @Body() body: { name: string; type: RoomTypeEnum; branchId: string },
   ) {
-    return this.chatService.createRoom(userId, body.name);
+    return this.chatService.createRoom(
+      userId,
+      body.name,
+      body.type,
+      body.branchId,
+    );
   }
 
   @Get('rooms/:userId')

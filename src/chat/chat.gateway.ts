@@ -6,6 +6,8 @@ import {
   OnGatewayDisconnect,
   SubscribeMessage,
 } from '@nestjs/websockets';
+import { RoomTypeEnum } from '@prisma/client';
+import { create } from 'domain';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from 'src/core/services';
 
@@ -30,20 +32,33 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('createRoom')
   async handleCreateRoom(
     client: Socket,
-    payload: { name: string; userId: string },
+    payload: {
+      name: string;
+      userId: string;
+      type: RoomTypeEnum;
+      branchId: string;
+    },
   ) {
-    const { name, userId } = payload;
+    const { name, userId, type, branchId } = payload;
 
     try {
       // Create room using Prisma
       const room = await this.prisma.rooms.create({
         data: {
           name,
+          type,
+          branchId,
+          users: {
+            connect: {
+              id: userId,
+            },
+          },
         },
       });
 
       // Notify the client that the room has been created
       console.log('createdRoom', room);
+      client.join(room.id);
       client.emit('roomCreated', { room });
     } catch (error) {
       console.error('Error creating room:', error);
@@ -52,50 +67,50 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('addUserToRoom')
-  async handleAddUserToRoom(
-    client: Socket,
-    payload: { roomId: string; userId: string },
-  ) {
-    const { roomId, userId } = payload;
+  // @SubscribeMessage('addUserToRoom')
+  // async handleAddUserToRoom(
+  //   client: Socket,
+  //   payload: { roomId: string; userId: string },
+  // ) {
+  //   const { roomId, userId } = payload;
 
-    try {
-      // Check if the room exists
-      const room = await this.prisma.rooms.findUnique({
-        where: { id: roomId },
-      });
-      if (!room) {
-        client.emit('roomNotFound', { error: 'Room not found' });
-        return;
-      }
+  //   try {
+  //     // Check if the room exists
+  //     const room = await this.prisma.rooms.findUnique({
+  //       where: { id: roomId },
+  //     });
+  //     if (!room) {
+  //       client.emit('roomNotFound', { error: 'Room not found' });
+  //       return;
+  //     }
 
-      console.log('room found-', { room });
+  //     console.log('room found-', { room });
 
-      // Add users to the room using Prisma
-      const updatedRoom = await this.prisma.rooms.update({
-        where: { id: roomId },
-        data: {
-          users: {
-            connect: { id: userId },
-          },
-        },
-        include: {
-          users: true,
-        },
-      });
+  //     // Add users to the room using Prisma
+  //     const updatedRoom = await this.prisma.rooms.update({
+  //       where: { id: roomId },
+  //       data: {
+  //         users: {
+  //           connect: { id: userId },
+  //         },
+  //       },
+  //       include: {
+  //         users: true,
+  //       },
+  //     });
 
-      // Notify the client that the users have been added to the room
-      client.emit('usersAddedToRoom', { room: updatedRoom });
+  //     // Notify the client that the users have been added to the room
+  //     client.emit('usersAddedToRoom', { room: updatedRoom });
 
-      console.log(updatedRoom);
-    } catch (error) {
-      console.error('Error adding users to room:', error);
-      // Handle error and send an error response to the client
-      client.emit('usersAdditionError', {
-        error: 'Failed to add users to room',
-      });
-    }
-  }
+  //     console.log(updatedRoom);
+  //   } catch (error) {
+  //     console.error('Error adding users to room:', error);
+  //     // Handle error and send an error response to the client
+  //     client.emit('usersAdditionError', {
+  //       error: 'Failed to add users to room',
+  //     });
+  //   }
+  // }
 
   @SubscribeMessage('send-message')
   async handleSendMessage(
@@ -104,7 +119,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const { roomId, userId, message } = data;
 
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: {
         id: userId,
       },

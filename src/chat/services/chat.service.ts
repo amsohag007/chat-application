@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { Message, Rooms } from '@prisma/client';
+import { Messages, RoomTypeEnum, Rooms } from '@prisma/client';
 import { PrismaService } from '../../core/services';
 
 @Injectable()
 export class ChatService {
   constructor(private prisma: PrismaService) {}
 
-  async createRoom(userId: string, name: string): Promise<Rooms> {
-    const user = await this.prisma.user.findUnique({
+  async createRoom(
+    userId: string,
+    name: string,
+    type: RoomTypeEnum,
+    branchId: string,
+  ): Promise<Rooms> {
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: { rooms: true },
     });
@@ -15,6 +20,8 @@ export class ChatService {
     const room = await this.prisma.rooms.create({
       data: {
         name,
+        type,
+        branchId,
         users: { connect: { id: userId } },
       },
       include: { users: true },
@@ -27,8 +34,8 @@ export class ChatService {
     roomId: string,
     text: string,
     userId: string,
-  ): Promise<Message> {
-    const message = await this.prisma.message.create({
+  ): Promise<Messages> {
+    const message = await this.prisma.messages.create({
       data: {
         text,
         userId,
@@ -41,7 +48,7 @@ export class ChatService {
   }
 
   async getRoomsByUserId(userId: string) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: { rooms: true },
     });
@@ -49,8 +56,16 @@ export class ChatService {
     return user.rooms;
   }
 
+  // async getRoomsByBranchId(branchId: string) {
+  //   const rooms = await this.prisma.rooms.findUnique({
+  //     where: { branchId:branchId},
+  //   });
+
+  //   return rooms;
+  // }
+
   async getMessagesByRoomId(roomId: string) {
-    const messages = await this.prisma.message.findMany({
+    const messages = await this.prisma.messages.findMany({
       where: { roomId },
       include: { user: true },
       orderBy: { createdAt: 'asc' },
